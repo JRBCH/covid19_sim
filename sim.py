@@ -15,7 +15,7 @@ colors = {'S': '#1b9e77', 'I': '#d95f02', 'R': '#7570b3',
           'Slight' : '#66c2a5', 'Ilight' : '#fc8d62', 'Rlight': '#8da0cb'}
 lw = 2
 
-def sir_model(t, y, beta, gamma, N):
+def sir_dydt(t, y, beta, gamma, N):
     """
     Defines the differential equations for the SIR model system.
 
@@ -35,7 +35,33 @@ def sir_model(t, y, beta, gamma, N):
 
     return f
 
-def draw_plot(S,I,R,time):
+def sir_model(N, S0, I0, R0, gamma, beta, T):
+    """
+    Wrapper function for the SIR model system.
+
+    Arguments:
+        N: total population
+        R0: initial removed population
+        S0: initial susceptible population
+        I0: initial infectious population
+        gamma: recovery rate
+        beta: infection rate
+        T :  time (in days to simulate)
+    """
+
+    t_span = (0.0, T)
+    sol = solve_ivp(sir_dydt, t_span, [S0, I0, R0],
+                    args=(beta, gamma, N),
+                    first_step=1, max_step=1)
+
+    St, It, Rt = sol['y']
+    time = sol['t']
+
+    fig = draw_plot(St, It, Rt, N,time)
+
+    return [sol, fig]
+
+def draw_plot(S,I,R,N,time):
 
     fig = plt.figure(constrained_layout=True, figsize=(10, 6))
     spec = gridspec.GridSpec(ncols=2, nrows=2, figure=fig)
@@ -64,6 +90,18 @@ def draw_plot(S,I,R,time):
     ax2.spines['right'].set_visible(False)
     ax2.spines['top'].set_visible(False)
 
+    ax3.fill_between(xaxis1, 0, I, color = colors['I'])
+    ax3.text(np.max(xaxis1), 0.95*np.max(I),
+             'Maximum number of \nsimultaneous patients:\n' + str(int(np.max(I))) +
+             ' on day ' + str(int(xaxis1[np.argmax(I)])),
+             horizontalalignment = 'right',
+             verticalalignment = 'top')
+    ax3.set_xlabel('Time (days)')
+    ax3.set_ylabel('Infectious population')
+    # Hide the right and top spines
+    ax3.spines['right'].set_visible(False)
+    ax3.spines['top'].set_visible(False)
+
 
     # calculate deltaI
     deltaI = [I[i]- I[i-1] for i in np.arange(1,np.size(I))]
@@ -88,19 +126,12 @@ if __name__ == "__main__":
     R_init = 30284
     I_init = 69848
     S_init = N - I_init - R_init
-    gamma = 0.025  # rate of recovery / deat
-    beta = 0.06  # rate of infection
-    T = 500  # Number of days to simulate
+    gamma = 1/10.5  # rate of recovery / death
+    beta = 0.11  # rate of infection
+    T = 750  # Number of days to simulate
 
     t_span = (0.0, T)
 
-    sol = solve_ivp(sir_model, t_span, [S_init, I_init, R_init],
-                    args=(beta, gamma, N),
-                    first_step=1, max_step=1)
-
-    St, It, Rt = sol['y']
-    time = sol['t']
-
-    draw_plot(St, It, Rt, time)
+    sol = sir_model(N, R_init, S_init, I_init, gamma, beta, T)
     plt.show()
 
